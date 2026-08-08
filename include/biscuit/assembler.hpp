@@ -72,6 +72,10 @@ public:
         m_buffer.RewindCursor(offset);
     }
 
+    void SwapCodeBuffer(CodeBuffer buffer) {
+        m_buffer = std::move(buffer);
+    }
+
     /// Retrieves the cursor pointer for the underlying code buffer.
     [[nodiscard]] uint8_t* GetCursorPointer() noexcept {
         return m_buffer.GetCursorPointer();
