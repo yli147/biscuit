@@ -1,6 +1,7 @@
 #include <biscuit/assert.hpp>
 #include <biscuit/assembler.hpp>
 
+#include <cstdio>
 #include <cstring>
 
 namespace biscuit {
@@ -2338,6 +2339,10 @@ void Assembler::ResolveLabelOffsets(Label* label) {
         // and then OR it into the instruction.
 
         const auto encoded_offset = label_location - offset;
+        if (offset >= 0x220 && offset < 0x240) {
+            std::fprintf(stderr, "biscuit label patch offset=%td inst=%08x size=%zu\n", offset, instruction, inst_size);
+            std::fflush(stderr);
+        }
 
         if (inst_size == sizeof(uint32_t)) {
             if (is_b_type(instruction)) {
