@@ -2324,6 +2324,7 @@ void Assembler::ResolveLabelOffsets(Label* label) {
 
     for (const auto offset : label->m_offsets) {
         const auto address = m_buffer.GetOffsetAddress(offset);
+        BISCUIT_ASSERT((address & 1) == 0);
         auto* const ptr = reinterpret_cast<uint8_t*>(address);
         const auto inst_size = determine_inst_size(uint32_t{*ptr} | (uint32_t{*(ptr + 1)} << 8));
 
