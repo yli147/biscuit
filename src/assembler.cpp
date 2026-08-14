@@ -2345,6 +2345,8 @@ void Assembler::ResolveLabelOffsets(Label* label) {
             } else if (is_j_type(instruction)) {
                 BISCUIT_ASSERT(IsValidJTypeImm(encoded_offset));
                 instruction |= TransformToJTypeImm(static_cast<uint32_t>(encoded_offset));
+            } else {
+                BISCUIT_ASSERT(false);
             }
         } else {
             if (is_cb_type(instruction)) {
