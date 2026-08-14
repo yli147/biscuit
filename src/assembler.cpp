@@ -136,6 +136,10 @@ void EmitRType(CodeBuffer& buffer, uint32_t funct7, Register rs2, Register rs1, 
 
     buffer.Emit32(value);
     if (opcode == 0b0110011 && funct3 == 0 && funct7 == 0b0100000) {
+        if ((value & 0xFE000000) != 0x40000000) {
+            std::fprintf(stderr, "bad SUB funct7=%u rs2=%u rs1=%u rd=%u value=%08x\n", funct7, rs2.Index(), rs1.Index(), rd.Index(), value);
+            std::fflush(stderr);
+        }
         BISCUIT_ASSERT((value & 0xFE000000) == 0x40000000);
     }
 }
