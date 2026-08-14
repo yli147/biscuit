@@ -135,6 +135,9 @@ void EmitRType(CodeBuffer& buffer, uint32_t funct7, Register rs2, Register rs1, 
     // clang-format off
 
     buffer.Emit32(value);
+    if (opcode == 0b0110011 && funct3 == 0 && funct7 == 0b0100000) {
+        BISCUIT_ASSERT((value & 0xFE000000) == 0x40000000);
+    }
 }
 
 // Emits a R type RISC instruction. These consist of:
