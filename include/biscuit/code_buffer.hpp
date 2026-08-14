@@ -195,6 +195,7 @@ public:
         cursor[1] = static_cast<uint8_t>(value >> 8);
         cursor[2] = static_cast<uint8_t>(value >> 16);
         cursor[3] = static_cast<uint8_t>(value >> 24);
+        BISCUIT_ASSERT(*reinterpret_cast<volatile const uint32_t*>(m_cursor) == value);
         m_cursor += sizeof(uint32_t);
     }
 
