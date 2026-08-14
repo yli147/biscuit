@@ -190,7 +190,8 @@ public:
 
     /// Emits a 32-bit value into the code buffer.
     void Emit32(uint32_t value) noexcept {
-        Emit(value);
+        Emit16(value);
+        Emit16(value >> 16);
     }
 
 private:
