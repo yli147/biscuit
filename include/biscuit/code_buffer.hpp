@@ -190,8 +190,12 @@ public:
 
     /// Emits a 32-bit value into the code buffer.
     void Emit32(uint32_t value) noexcept {
-        Emit16(value);
-        Emit16(value >> 16);
+        auto* cursor = reinterpret_cast<volatile uint8_t*>(m_cursor);
+        cursor[0] = static_cast<uint8_t>(value);
+        cursor[1] = static_cast<uint8_t>(value >> 8);
+        cursor[2] = static_cast<uint8_t>(value >> 16);
+        cursor[3] = static_cast<uint8_t>(value >> 24);
+        m_cursor += sizeof(uint32_t);
     }
 
 private:
