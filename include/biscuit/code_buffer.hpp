@@ -129,6 +129,11 @@ public:
         m_cursor = rewound;
     }
 
+    void AdvanceCursor(size_t bytes) noexcept {
+        m_cursor += bytes;
+        EnsureBufferRange();
+    }
+
     /**
      * Whether or not the underlying buffer has enough room for the
      * given number of bytes.

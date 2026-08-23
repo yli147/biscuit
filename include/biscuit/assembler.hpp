@@ -72,6 +72,10 @@ public:
         m_buffer.RewindCursor(offset);
     }
 
+    void AdvanceBuffer(size_t bytes) {
+        m_buffer.AdvanceCursor(bytes);
+    }
+
     void SwapCodeBuffer(CodeBuffer buffer) {
         m_buffer = std::move(buffer);
     }
