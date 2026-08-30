@@ -18,6 +18,11 @@ namespace biscuit {
  */
 class CodeBuffer {
 public:
+    // Called instead of asserting when a caller-owned buffer runs out of
+    // space. The handler is expected to not return (for example, by
+    // restarting code generation with a larger buffer).
+    using OverflowHandler = void (*)(void* context, size_t required_size) noexcept;
+
     // Default capacity of 4KB.
     static constexpr size_t default_capacity = 4096;
 
@@ -51,7 +56,9 @@ public:
         : m_buffer{std::exchange(other.m_buffer, nullptr)}
         , m_cursor{std::exchange(other.m_cursor, nullptr)}
         , m_capacity{std::exchange(other.m_capacity, size_t{0})}
-        , m_is_managed{std::exchange(other.m_is_managed, false)} {}
+        , m_is_managed{std::exchange(other.m_is_managed, false)}
+        , m_overflow_handler{std::exchange(other.m_overflow_handler, nullptr)}
+        , m_overflow_context{std::exchange(other.m_overflow_context, nullptr)} {}
     CodeBuffer& operator=(CodeBuffer&& other) noexcept {
         if (this == &other) {
             return *this;
@@ -60,6 +67,8 @@ public:
         m_cursor = std::exchange(other.m_cursor, nullptr);
         m_capacity = std::exchange(other.m_capacity, size_t{0});
         m_is_managed = std::exchange(other.m_is_managed, false);
+        m_overflow_handler = std::exchange(other.m_overflow_handler, nullptr);
+        m_overflow_context = std::exchange(other.m_overflow_context, nullptr);
         return *this;
     }
 
@@ -139,6 +148,11 @@ public:
         return GetRemainingBytes() >= num_bytes;
     }
 
+    void SetOverflowHandler(OverflowHandler handler, void* context = nullptr) noexcept {
+        m_overflow_handler = handler;
+        m_overflow_context = context;
+    }
+
     /// Returns the size of the data written to the buffer in bytes.
     [[nodiscard]] size_t GetSizeInBytes() const noexcept {
         EnsureBufferRange();
@@ -177,7 +191,12 @@ public:
     void Emit(T value) noexcept {
         static_assert(std::is_trivially_copyable_v<T>,
                       "It's undefined behavior to memcpy a non-trivially-copyable type.");
-        BISCUIT_ASSERT(HasSpaceFor(sizeof(T)));
+        if (!HasSpaceFor(sizeof(T))) {
+            if (m_overflow_handler) {
+                m_overflow_handler(m_overflow_context, sizeof(T));
+            }
+            BISCUIT_ASSERT(false);
+        }
 
         std::memcpy(m_cursor, &value, sizeof(T));
         m_cursor += sizeof(T);
@@ -202,6 +221,8 @@ private:
     uint8_t* m_cursor = nullptr;
     size_t m_capacity = 0;
     bool m_is_managed = false;
+    OverflowHandler m_overflow_handler = nullptr;
+    void* m_overflow_context = nullptr;
 };
 
 } // namespace biscuit

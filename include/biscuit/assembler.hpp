@@ -77,6 +77,10 @@ public:
         m_buffer = std::move(buffer);
     }
 
+    void SetBufferOverflowHandler(CodeBuffer::OverflowHandler handler, void* context = nullptr) noexcept {
+        m_buffer.SetOverflowHandler(handler, context);
+    }
+
     /// Retrieves the cursor pointer for the underlying code buffer.
     [[nodiscard]] uint8_t* GetCursorPointer() noexcept {
         return m_buffer.GetCursorPointer();

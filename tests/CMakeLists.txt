@@ -1,6 +1,7 @@
 project(biscuit_tests)
 
 add_executable(${PROJECT_NAME}
+    src/code_buffer_tests.cpp
     src/assembler_branch_tests.cpp
     src/assembler_cmo_tests.cpp
     src/assembler_privileged_tests.cpp
