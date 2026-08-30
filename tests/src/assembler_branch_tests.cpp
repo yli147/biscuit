@@ -105,9 +105,17 @@ TEST_CASE("Branch with Instructions Between", "[branch]") {
 }
 
 TEST_CASE("Relaxed jumps reserve a fixed slot and reach far labels", "[branch]") {
-    constexpr size_t FarNOPCount = 0x20000;
+    constexpr size_t MaxShortJumpNOPCount = (0xFFFFC - 8) / sizeof(uint32_t);
+    constexpr size_t FarNOPCount = 0x40000;
     std::vector<uint32_t> data(FarNOPCount + 4);
 
+    const auto DecodeJALImmediate = [](uint32_t instruction) {
+        const auto immediate = ((instruction >> 31) << 20) |
+                               (((instruction >> 21) & 0x3FF) << 1) |
+                               (((instruction >> 20) & 1) << 11) |
+                               (((instruction >> 12) & 0xFF) << 12);
+        return static_cast<int32_t>(immediate << 11) >> 11;
+    };
     const auto DecodeJALRImmediate = [](uint32_t instruction) {
         return static_cast<int32_t>(instruction) >> 20;
     };
@@ -122,6 +130,21 @@ TEST_CASE("Relaxed jumps reserve a fixed slot and reach far labels", "[branch]")
         as.Bind(&label);
         REQUIRE(data[0] == 0x00C0006F);
         REQUIRE(data[1] == 0x00000013);
+    }
+    std::fill(data.begin(), data.end(), 0);
+
+    // The largest aligned positive JAL offset remains in the short form.
+    {
+        Assembler as(reinterpret_cast<uint8_t*>(data.data()), data.size() * sizeof(uint32_t));
+        Label label;
+        as.JRelaxed(x5, &label);
+        for (size_t i = 0; i < MaxShortJumpNOPCount; ++i) {
+            as.NOP();
+        }
+        as.Bind(&label);
+        REQUIRE((data[0] & 0x7F) == 0x6F); // JAL
+        REQUIRE(data[1] == 0x00000013);
+        REQUIRE(DecodeJALImmediate(data[0]) == 0xFFFFC);
     }
     std::fill(data.begin(), data.end(), 0);
 

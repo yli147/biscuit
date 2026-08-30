@@ -24,7 +24,7 @@ namespace {
 
 // J-type immediates only provide -1MiB to +1MiB range branches.
 [[nodiscard]] bool IsValidJTypeImm(ptrdiff_t value) noexcept {
-    return value >= -0x80000 && value <= 0x7FFFF;
+    return value >= -0x100000 && value <= 0xFFFFE;
 }
 
 // CB-type immediates only provide -256B to +256B range branches.
@@ -481,8 +481,10 @@ void Assembler::J(Label* label) noexcept {
 
 void Assembler::JRelaxed(GPR scratch, Label* label) noexcept {
     BISCUIT_ASSERT(label != nullptr);
+    BISCUIT_ASSERT((m_buffer.GetCursorOffset() & 3) == 0);
 
     if (label->IsBound()) {
+        BISCUIT_ASSERT((*label->GetLocation() & 3) == 0);
         const auto cursor_address = m_buffer.GetCursorAddress();
         const auto label_offset = m_buffer.GetOffsetAddress(*label->GetLocation());
         EmitRelaxedJump(scratch, static_cast<ptrdiff_t>(label_offset - cursor_address));
@@ -2292,6 +2294,7 @@ void Assembler::BindToOffset(Label* label, Label::LocationOffset offset) {
 }
 
 void Assembler::EmitRelaxedJump(GPR scratch, ptrdiff_t offset) noexcept {
+    BISCUIT_ASSERT((offset & 3) == 0);
     if (IsValidJTypeImm(offset)) {
         J(static_cast<int32_t>(offset));
         NOP();
@@ -2310,6 +2313,8 @@ void Assembler::EmitRelaxedJump(GPR scratch, ptrdiff_t offset) noexcept {
 }
 
 void Assembler::PatchRelaxedJump(GPR scratch, Label::LocationOffset location, ptrdiff_t offset) noexcept {
+    BISCUIT_ASSERT((location & 3) == 0);
+    BISCUIT_ASSERT((offset & 3) == 0);
     auto* const ptr = m_buffer.GetOffsetPointer(location);
     uint32_t instructions[2];
 

@@ -161,7 +161,8 @@ public:
     /**
      * Emits an eight-byte jump slot that can reach any label in the current
      * code buffer.  Near labels use JAL followed by NOP; farther labels use
-     * AUIPC/JALR and clobber @p scratch.
+     * AUIPC/JALR and clobber @p scratch. Both source and target labels must
+     * be four-byte aligned.
      */
     void JRelaxed(GPR scratch, Label* label) noexcept;
     void JAL(Label* label) noexcept;
