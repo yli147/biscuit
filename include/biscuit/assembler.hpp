@@ -8,6 +8,7 @@
 #include <biscuit/vector.hpp>
 #include <cstddef>
 #include <cstdint>
+#include <vector>
 
 namespace biscuit {
 
@@ -157,6 +158,12 @@ public:
     void FENCETSO() noexcept;
 
     void J(Label* label) noexcept;
+    /**
+     * Emits an eight-byte jump slot that can reach any label in the current
+     * code buffer.  Near labels use JAL followed by NOP; farther labels use
+     * AUIPC/JALR and clobber @p scratch.
+     */
+    void JRelaxed(GPR scratch, Label* label) noexcept;
     void JAL(Label* label) noexcept;
     void JAL(GPR rd, Label* label) noexcept;
 
@@ -1262,6 +1269,12 @@ public:
     void VSETVLI(GPR rd, GPR rs, SEW sew, LMUL lmul = LMUL::M1, VTA vta = VTA::No, VMA vma = VMA::No) noexcept;
 
 private:
+    struct RelaxedJump {
+        Label* label;
+        Label::LocationOffset offset;
+        GPR scratch;
+    };
+
     // Binds a label to a given offset.
     void BindToOffset(Label* label, Label::LocationOffset offset);
 
@@ -1273,7 +1286,11 @@ private:
     // requires them.
     void ResolveLabelOffsets(Label* label);
 
+    void EmitRelaxedJump(GPR scratch, ptrdiff_t offset) noexcept;
+    void PatchRelaxedJump(GPR scratch, Label::LocationOffset location, ptrdiff_t offset) noexcept;
+
     CodeBuffer m_buffer;
+    std::vector<RelaxedJump> m_relaxed_jumps;
 };
 
 } // namespace biscuit

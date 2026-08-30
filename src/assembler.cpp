@@ -1,6 +1,8 @@
 #include <biscuit/assert.hpp>
 #include <biscuit/assembler.hpp>
 
+#include <algorithm>
+#include <climits>
 #include <cstring>
 
 namespace biscuit {
@@ -475,6 +477,25 @@ void Assembler::J(Label* label) noexcept {
     const auto address = LinkAndGetOffset(label);
     BISCUIT_ASSERT(IsValidJTypeImm(address));
     J(static_cast<int32_t>(address));
+}
+
+void Assembler::JRelaxed(GPR scratch, Label* label) noexcept {
+    BISCUIT_ASSERT(label != nullptr);
+
+    if (label->IsBound()) {
+        const auto cursor_address = m_buffer.GetCursorAddress();
+        const auto label_offset = m_buffer.GetOffsetAddress(*label->GetLocation());
+        EmitRelaxedJump(scratch, static_cast<ptrdiff_t>(label_offset - cursor_address));
+        return;
+    }
+
+    const auto offset = m_buffer.GetCursorOffset();
+    // Track this in Label as well, so destroying an unresolved label remains
+    // a logic error just like regular label branches.
+    label->AddOffset(offset);
+    m_relaxed_jumps.emplace_back(label, offset, scratch);
+    J(0);
+    NOP();
 }
 
 void Assembler::JAL(Label* label) noexcept {
@@ -2270,6 +2291,44 @@ void Assembler::BindToOffset(Label* label, Label::LocationOffset offset) {
     label->ClearOffsets();
 }
 
+void Assembler::EmitRelaxedJump(GPR scratch, ptrdiff_t offset) noexcept {
+    if (IsValidJTypeImm(offset)) {
+        J(static_cast<int32_t>(offset));
+        NOP();
+        return;
+    }
+
+    // AUIPC/JALR has a signed 32-bit PC-relative reach.  AUIPC takes its
+    // immediate in 4 KiB units, while JALR consumes the signed low 12 bits.
+    BISCUIT_ASSERT(offset >= INT32_MIN && offset <= INT32_MAX);
+    const auto delta = static_cast<int32_t>(offset);
+    const auto low = static_cast<int32_t>((static_cast<uint32_t>(delta) & 0xFFF) << 20) >> 20;
+    const auto high = static_cast<int32_t>((static_cast<int64_t>(delta) - low) >> 12);
+    BISCUIT_ASSERT(high >= -(1 << 19) && high < (1 << 19));
+    AUIPC(scratch, high);
+    JALR(x0, low, scratch);
+}
+
+void Assembler::PatchRelaxedJump(GPR scratch, Label::LocationOffset location, ptrdiff_t offset) noexcept {
+    auto* const ptr = m_buffer.GetOffsetPointer(location);
+    uint32_t instructions[2];
+
+    if (IsValidJTypeImm(offset)) {
+        instructions[0] = TransformToJTypeImm(static_cast<uint32_t>(offset)) | 0b1101111;
+        instructions[1] = 0x00000013; // NOP
+    } else {
+        BISCUIT_ASSERT(offset >= INT32_MIN && offset <= INT32_MAX);
+        const auto delta = static_cast<int32_t>(offset);
+        const auto low = static_cast<int32_t>((static_cast<uint32_t>(delta) & 0xFFF) << 20) >> 20;
+        const auto high = static_cast<int32_t>((static_cast<int64_t>(delta) - low) >> 12);
+        BISCUIT_ASSERT(high >= -(1 << 19) && high < (1 << 19));
+        instructions[0] = ((static_cast<uint32_t>(high) & 0xFFFFF) << 12) | (scratch.Index() << 7) | 0b0010111;
+        instructions[1] = ((static_cast<uint32_t>(low) & 0xFFF) << 20) | (scratch.Index() << 15) | 0b1100111;
+    }
+
+    std::memcpy(ptr, instructions, sizeof(instructions));
+}
+
 ptrdiff_t Assembler::LinkAndGetOffset(Label* label) {
     BISCUIT_ASSERT(label != nullptr);
 
@@ -2323,6 +2382,15 @@ void Assembler::ResolveLabelOffsets(Label* label) {
     const auto label_location = *label->GetLocation();
 
     for (const auto offset : label->m_offsets) {
+        const auto relaxed_jump = std::find_if(m_relaxed_jumps.begin(), m_relaxed_jumps.end(),
+                                               [label, offset](const RelaxedJump& jump) {
+                                                   return jump.label == label && jump.offset == offset;
+                                               });
+        if (relaxed_jump != m_relaxed_jumps.end()) {
+            PatchRelaxedJump(relaxed_jump->scratch, offset, label_location - offset);
+            m_relaxed_jumps.erase(relaxed_jump);
+            continue;
+        }
         const auto address = m_buffer.GetOffsetAddress(offset);
         auto* const ptr = reinterpret_cast<uint8_t*>(address);
         const auto inst_size = determine_inst_size(uint32_t{*ptr} | (uint32_t{*(ptr + 1)} << 8));
