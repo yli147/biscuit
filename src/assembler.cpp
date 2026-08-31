@@ -1555,6 +1555,14 @@ void Assembler::CLZW(GPR rd, GPR rs) noexcept {
     EmitIType(m_buffer, 0b011000000000, rs, 0b001, rd, 0b0011011);
 }
 
+void Assembler::CZERO_EQZ(GPR rd, GPR rs1, GPR rs2) noexcept {
+    EmitRType(m_buffer, 0b0000111, rs2, rs1, 0b101, rd, 0b0110011);
+}
+
+void Assembler::CZERO_NEZ(GPR rd, GPR rs1, GPR rs2) noexcept {
+    EmitRType(m_buffer, 0b0000111, rs2, rs1, 0b111, rd, 0b0110011);
+}
+
 void Assembler::CPOP(GPR rd, GPR rs) noexcept {
     EmitIType(m_buffer, 0b011000000010, rs, 0b001, rd, 0b0010011);
 }
