@@ -492,10 +492,10 @@ void Assembler::JRelaxed(GPR scratch, Label* label) noexcept {
     }
 
     const auto offset = m_buffer.GetCursorOffset();
-    // Track this in Label as well, so destroying an unresolved label remains
-    // a logic error just like regular label branches.
-    label->AddOffset(offset);
-    m_relaxed_jumps.emplace_back(label, offset, scratch);
+    // Keep the relaxed-jump metadata on its target label. This makes binding
+    // a label proportional to the number of its own fixups, rather than
+    // searching and erasing entries from an assembler-wide vector.
+    label->AddRelaxedJump(offset, static_cast<uint8_t>(scratch.Index()));
     J(0);
     NOP();
 }
@@ -2386,14 +2386,9 @@ void Assembler::ResolveLabelOffsets(Label* label) {
 
     const auto label_location = *label->GetLocation();
 
-    for (const auto offset : label->m_offsets) {
-        const auto relaxed_jump = std::find_if(m_relaxed_jumps.begin(), m_relaxed_jumps.end(),
-                                               [label, offset](const RelaxedJump& jump) {
-                                                   return jump.label == label && jump.offset == offset;
-                                               });
-        if (relaxed_jump != m_relaxed_jumps.end()) {
-            PatchRelaxedJump(relaxed_jump->scratch, offset, label_location - offset);
-            m_relaxed_jumps.erase(relaxed_jump);
+    for (const auto& [offset, relaxed_scratch] : label->m_offsets) {
+        if (relaxed_scratch) {
+            PatchRelaxedJump(GPR {*relaxed_scratch}, offset, label_location - offset);
             continue;
         }
         const auto address = m_buffer.GetOffsetAddress(offset);

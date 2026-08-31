@@ -1,8 +1,9 @@
 #pragma once
 
 #include <cstddef>
+#include <cstdint>
+#include <map>
 #include <optional>
-#include <set>
 #include <biscuit/assert.hpp>
 
 namespace biscuit {
@@ -153,7 +154,17 @@ private:
         BISCUIT_ASSERT(!IsBound());
         BISCUIT_ASSERT(IsNewOffset(offset));
 
-        m_offsets.insert(offset);
+        m_offsets.emplace(offset, std::nullopt);
+    }
+
+    // Records a forward JRelaxed site. Keep this metadata with the target
+    // label so Bind can patch it directly, rather than searching every
+    // unresolved relaxed jump owned by the assembler.
+    void AddRelaxedJump(LocationOffset offset, uint8_t scratch) {
+        BISCUIT_ASSERT(!IsBound());
+        BISCUIT_ASSERT(IsNewOffset(offset));
+
+        m_offsets.emplace(offset, scratch);
     }
 
     // Clears all the underlying offsets for this label.
@@ -166,7 +177,9 @@ private:
         return m_offsets.find(offset) == m_offsets.cend();
     }
 
-    std::set<LocationOffset> m_offsets;
+    // nullopt denotes an ordinary branch/JAL fixup. A value is the scratch
+    // GPR index used by a JRelaxed site at this offset.
+    std::map<LocationOffset, std::optional<uint8_t>> m_offsets;
     Location m_location;
 };
 

@@ -1274,12 +1274,6 @@ public:
     void VSETVLI(GPR rd, GPR rs, SEW sew, LMUL lmul = LMUL::M1, VTA vta = VTA::No, VMA vma = VMA::No) noexcept;
 
 private:
-    struct RelaxedJump {
-        Label* label;
-        Label::LocationOffset offset;
-        GPR scratch;
-    };
-
     // Binds a label to a given offset.
     void BindToOffset(Label* label, Label::LocationOffset offset);
 
@@ -1295,7 +1289,6 @@ private:
     void PatchRelaxedJump(GPR scratch, Label::LocationOffset location, ptrdiff_t offset) noexcept;
 
     CodeBuffer m_buffer;
-    std::vector<RelaxedJump> m_relaxed_jumps;
 };
 
 } // namespace biscuit
