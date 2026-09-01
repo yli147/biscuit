@@ -139,6 +139,19 @@ public:
     }
 
     /**
+     * Sets the cursor to an arbitrary location in the backing buffer.
+     *
+     * This is intended for patching already-emitted code. Unlike
+     * RewindCursor(), the destination may be beyond the current cursor, but
+     * it must remain within the backing allocation.
+     */
+    void SetCursorOffset(ptrdiff_t offset) noexcept {
+        auto* cursor = m_buffer + offset;
+        BISCUIT_ASSERT(m_buffer <= cursor && cursor <= m_buffer + m_capacity);
+        m_cursor = cursor;
+    }
+
+    /**
      * Whether or not the underlying buffer has enough room for the
      * given number of bytes.
      *

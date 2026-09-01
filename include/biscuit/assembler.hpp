@@ -73,6 +73,11 @@ public:
         m_buffer.RewindCursor(offset);
     }
 
+    /// Moves the cursor within the backing allocation for code patching.
+    void SetBufferCursorOffset(ptrdiff_t offset) {
+        m_buffer.SetCursorOffset(offset);
+    }
+
     void SwapCodeBuffer(CodeBuffer buffer) {
         m_buffer = std::move(buffer);
     }
@@ -169,6 +174,12 @@ public:
      * be four-byte aligned.
      */
     void JRelaxed(GPR scratch, Label* label) noexcept;
+    /**
+     * Replaces an eight-byte JRelaxed slot at @p location with a jump to the
+     * supplied PC-relative @p offset.  The caller must provide a four-byte
+     * aligned slot and target.
+     */
+    void PatchRelaxedJump(GPR scratch, Label::LocationOffset location, ptrdiff_t offset) noexcept;
     void JAL(Label* label) noexcept;
     void JAL(GPR rd, Label* label) noexcept;
 
@@ -1288,8 +1299,6 @@ private:
     void ResolveLabelOffsets(Label* label);
 
     void EmitRelaxedJump(GPR scratch, ptrdiff_t offset) noexcept;
-    void PatchRelaxedJump(GPR scratch, Label::LocationOffset location, ptrdiff_t offset) noexcept;
-
     CodeBuffer m_buffer;
 };
 
