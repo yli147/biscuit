@@ -2394,11 +2394,12 @@ void Assembler::ResolveLabelOffsets(Label* label) {
 
     const auto label_location = *label->GetLocation();
 
-    for (const auto& [offset, relaxed_scratch] : label->m_offsets) {
-        if (relaxed_scratch) {
-            PatchRelaxedJump(GPR {*relaxed_scratch}, offset, label_location - offset);
+    for (const auto& entry : label->m_offsets) {
+        if (entry.relaxed_scratch) {
+            PatchRelaxedJump(GPR {*entry.relaxed_scratch}, entry.offset, label_location - entry.offset);
             continue;
         }
+        const auto offset = entry.offset;
         const auto address = m_buffer.GetOffsetAddress(offset);
         auto* const ptr = reinterpret_cast<uint8_t*>(address);
         const auto inst_size = determine_inst_size(uint32_t{*ptr} | (uint32_t{*(ptr + 1)} << 8));

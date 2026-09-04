@@ -2,8 +2,8 @@
 
 #include <cstddef>
 #include <cstdint>
-#include <map>
 #include <optional>
+#include <vector>
 #include <biscuit/assert.hpp>
 
 namespace biscuit {
@@ -154,7 +154,7 @@ private:
         BISCUIT_ASSERT(!IsBound());
         BISCUIT_ASSERT(IsNewOffset(offset));
 
-        m_offsets.emplace(offset, std::nullopt);
+        m_offsets.push_back({offset, std::nullopt});
     }
 
     // Records a forward JRelaxed site. Keep this metadata with the target
@@ -164,7 +164,7 @@ private:
         BISCUIT_ASSERT(!IsBound());
         BISCUIT_ASSERT(IsNewOffset(offset));
 
-        m_offsets.emplace(offset, scratch);
+        m_offsets.push_back({offset, scratch});
     }
 
     // Clears all the underlying offsets for this label.
@@ -174,12 +174,25 @@ private:
 
     // Determines whether or not this address has already been added before.
     [[nodiscard]] bool IsNewOffset(LocationOffset offset) const noexcept {
-        return m_offsets.find(offset) == m_offsets.cend();
+        for (const auto& entry : m_offsets) {
+            if (entry.offset == offset) {
+                return false;
+            }
+        }
+        return true;
     }
 
-    // nullopt denotes an ordinary branch/JAL fixup. A value is the scratch
-    // GPR index used by a JRelaxed site at this offset.
-    std::map<LocationOffset, std::optional<uint8_t>> m_offsets;
+    struct OffsetEntry {
+        LocationOffset offset;
+        // nullopt denotes an ordinary branch/JAL fixup. A value is the
+        // scratch GPR index used by a JRelaxed site at this offset.
+        std::optional<uint8_t> relaxed_scratch;
+    };
+
+    // Fixups are appended while emitting a fragment and consumed once at
+    // Bind(). Contiguous storage avoids one tree-node allocation and pointer
+    // chase per branch edge in the common small-fixup case.
+    std::vector<OffsetEntry> m_offsets;
     Location m_location;
 };
 
